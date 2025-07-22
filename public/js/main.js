@@ -16,8 +16,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Simulate room creation
         setTimeout(() => {
             const roomCode = generateRoomCode();
+            const playerName = 'Chủ phòng';
+            
             hideLoading();
-            showMessage('Phòng đã được tạo!', `Mã phòng của bạn: <strong>${roomCode}</strong><br><br>Chia sẻ mã này với bạn bè để họ có thể tham gia!<br><br><em>Lưu ý: Đây là phiên bản demo. Để trải nghiệm đầy đủ tính năng multiplayer, vui lòng chạy ứng dụng Spring Boot.</em>`);
+            
+            // Redirect to game page with room code
+            window.location.href = `./game.html?room=${roomCode}&player=${encodeURIComponent(playerName)}&host=true`;
         }, 2000);
     });
 
@@ -41,11 +45,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Simulate joining room
         setTimeout(() => {
             hideLoading();
-            showMessage('Tham gia thành công!', `Chào mừng ${playerName} đến phòng ${roomCode}!<br><br><em>Lưu ý: Đây là phiên bản demo. Để trải nghiệm đầy đủ tính năng multiplayer, vui lòng chạy ứng dụng Spring Boot.</em>`);
             
-            // Clear inputs
-            roomCodeInput.value = '';
-            playerNameInput.value = '';
+            // Redirect to game page with room code
+            window.location.href = `./game.html?room=${roomCode}&player=${encodeURIComponent(playerName)}&host=false`;
         }, 2000);
     });
 

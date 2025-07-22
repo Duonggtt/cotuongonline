@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cờ Tướng Online - Game</title>
+    <link rel="stylesheet" href="./css/main.css">
+    <link rel="stylesheet" href="./css/game.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Header với thông tin phòng -->
+        <div class="game-header">
+            <div class="room-info">
+                <h2>🏛️ Cờ Tướng Online</h2>
+                <div class="room-details">
+                    <span class="room-code">Phòng: <strong id="roomCodeDisplay">------</strong></span>
+                    <span class="room-status" id="roomStatus">Đang chờ đối thủ...</span>
+                </div>
+            </div>
+            <div class="game-controls">
+                <button id="copyRoomBtn" class="btn btn-secondary">📋 Copy mã phòng</button>
+                <button id="leaveRoomBtn" class="btn btn-danger">🚪 Rời phòng</button>
+            </div>
+        </div>
+
+        <!-- Main game area -->
+        <div class="game-main">
+            <!-- Bàn cờ -->
+            <div class="chess-section">
+                <div class="player-info player-red">
+                    <div class="player-avatar">🔴</div>
+                    <div class="player-details">
+                        <span class="player-name" id="redPlayerName">Người chơi Đỏ</span>
+                        <span class="player-status">Đang chờ...</span>
+                    </div>
+                </div>
+
+                <div class="chess-board-container">
+                    <div id="chessBoard" class="chess-board">
+                        <!-- Board sẽ được tạo bằng JavaScript -->
+                    </div>
+                    <div class="board-info">
+                        <div class="current-turn">
+                            <span id="turnIndicator">🔴 Lượt của bạn</span>
+                        </div>
+                        <div class="game-timer">
+                            <span id="gameTimer">⏱️ 00:00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="player-info player-black">
+                    <div class="player-avatar">⚫</div>
+                    <div class="player-details">
+                        <span class="player-name" id="blackPlayerName">Đang chờ đối thủ...</span>
+                        <span class="player-status">Chưa tham gia</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat và thông tin -->
+            <div class="info-section">
+                <div class="game-info">
+                    <h3>📊 Thông tin trận đấu</h3>
+                    <div class="info-item">
+                        <span class="info-label">Trạng thái:</span>
+                        <span class="info-value" id="gameStatusInfo">Đang chờ đối thủ</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Số nước đã đi:</span>
+                        <span class="info-value" id="moveCount">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Thời gian:</span>
+                        <span class="info-value" id="timeDisplay">00:00</span>
+                    </div>
+                </div>
+
+                <div class="chat-section">
+                    <h3>💬 Chat</h3>
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="system-message">🤖 Chào mừng đến với phòng game!</div>
+                        <div class="system-message">💡 Chia sẻ mã phòng để mời bạn bè tham gia</div>
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." maxlength="200">
+                        <button id="sendChatBtn" class="btn btn-primary">Gửi</button>
+                    </div>
+                </div>
+
+                <div class="invite-section">
+                    <h3>👥 Mời bạn bè</h3>
+                    <div class="invite-code">
+                        <span>Mã phòng của bạn:</span>
+                        <div class="code-display">
+                            <span id="inviteCode">------</span>
+                            <button id="copyInviteBtn" class="btn btn-secondary">📋</button>
+                        </div>
+                    </div>
+                    <p class="invite-text">Chia sẻ mã này với bạn bè để họ có thể tham gia!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game actions -->
+        <div class="game-actions">
+            <button id="surrenderBtn" class="btn btn-danger" style="display: none;">🏳️ Đầu hàng</button>
+            <button id="offerDrawBtn" class="btn btn-secondary" style="display: none;">🤝 Xin hòa</button>
+            <button id="newGameBtn" class="btn btn-primary" style="display: none;">🎮 Ván mới</button>
+        </div>
+    </div>
+
+    <!-- Modal thông báo -->
+    <div id="gameModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Thông báo</h3>
+            <p id="modalMessage">Nội dung thông báo</p>
+            <div class="modal-actions">
+                <button id="modalOkBtn" class="btn btn-primary">OK</button>
+                <button id="modalCancelBtn" class="btn btn-secondary" style="display: none;">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="gameLoading" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p id="loadingText">Đang tải game...</p>
+        </div>
+    </div>
+
+    <script src="./js/chess-game.js"></script>
+    <script src="./js/chess-board.js"></script>
+    <script src="./js/game-ui.js"></script>
+</body>
+</html>
