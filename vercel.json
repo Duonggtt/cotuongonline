@@ -1,0 +1,17 @@
+{
+  "builds": [
+    {
+      "src": "pom.xml",
+      "use": "@vercel/java"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ],
+  "env": {
+    "SPRING_PROFILES_ACTIVE": "prod"
+  }
+}

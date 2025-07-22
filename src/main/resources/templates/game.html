@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'Phòng ' + ${room.roomCode} + ' - Cờ Tướng Online'">Cờ Tướng Online</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/game.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Header -->
+        <div class="game-header">
+            <div class="room-info">
+                <h2>🏛️ Phòng <span th:text="${room.roomCode}">123456</span></h2>
+                <div class="player-info">
+                    <span th:text="'Bạn là: ' + ${playerName}">Người chơi</span>
+                    <span th:text="'Màu: ' + (${playerColor} == T(com.cotuong.model.PlayerColor).RED ? 'Đỏ' : 'Đen')" class="player-color">Màu</span>
+                </div>
+            </div>
+            <div class="game-controls">
+                <button id="surrenderBtn" class="btn btn-danger">Đầu hàng</button>
+                <button id="leaveBtn" class="btn btn-secondary">Rời phòng</button>
+            </div>
+        </div>
+
+        <div class="game-main">
+            <!-- Game Board Section -->
+            <div class="board-section">
+                <div class="game-status">
+                    <div class="turn-indicator">
+                        <span id="currentTurnText">Lượt của Đỏ</span>
+                        <div id="gameStatusText" class="game-status-text"></div>
+                    </div>
+                </div>
+
+                <!-- Chess Board -->
+                <div class="board-container">
+                    <div id="chessBoard" class="chess-board">
+                        <!-- Board sẽ được tạo bởi JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Captured Pieces -->
+                <div class="captured-pieces">
+                    <div class="captured-section">
+                        <h4>Quân đã bị ăn - Đỏ:</h4>
+                        <div id="capturedRed" class="captured-list"></div>
+                    </div>
+                    <div class="captured-section">
+                        <h4>Quân đã bị ăn - Đen:</h4>
+                        <div id="capturedBlack" class="captured-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <!-- Move History -->
+                <div class="move-history-section">
+                    <h3>📜 Lịch sử nước đi</h3>
+                    <div id="moveHistory" class="move-history">
+                        <!-- Lịch sử sẽ được cập nhật bởi JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Chat Section -->
+                <div class="chat-section">
+                    <h3>💬 Chat</h3>
+                    <div id="chatMessages" class="chat-messages">
+                        <!-- Tin nhắn sẽ được hiển thị ở đây -->
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." maxlength="200">
+                        <button id="sendChatBtn" class="btn btn-primary">Gửi</button>
+                    </div>
+                    <div class="chat-controls">
+                        <button id="voiceChatBtn" class="btn btn-voice" title="Bật/Tắt micro">
+                            🎤
+                        </button>
+                        <button id="emojiBtn" class="btn btn-emoji" title="Emoji">
+                            😊
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emoji Panel -->
+    <div id="emojiPanel" class="emoji-panel hidden">
+        <div class="emoji-grid">
+            <span class="emoji-item">😊</span>
+            <span class="emoji-item">😂</span>
+            <span class="emoji-item">😎</span>
+            <span class="emoji-item">🤔</span>
+            <span class="emoji-item">😮</span>
+            <span class="emoji-item">😤</span>
+            <span class="emoji-item">👍</span>
+            <span class="emoji-item">👎</span>
+            <span class="emoji-item">🎉</span>
+            <span class="emoji-item">🔥</span>
+            <span class="emoji-item">💪</span>
+            <span class="emoji-item">🎯</span>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="gameOverModal" class="modal">
+        <div class="modal-content">
+            <h2 id="gameOverTitle">Kết thúc trận đấu</h2>
+            <p id="gameOverMessage">Trận đấu đã kết thúc!</p>
+            <div class="modal-actions">
+                <button id="newGameBtn" class="btn btn-primary">Tạo phòng mới</button>
+                <button id="backHomeBtn" class="btn btn-secondary">Về trang chủ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Waiting Modal -->
+    <div id="waitingModal" class="modal" th:if="${room.gameStatus.name() == 'WAITING'}">
+        <div class="modal-content">
+            <h3>⏳ Đang chờ đối thủ</h3>
+            <p>Chia sẻ mã phòng để mời bạn bè tham gia:</p>
+            <div class="room-code-share">
+                <input type="text" th:value="${room.roomCode}" readonly id="shareRoomCode">
+                <button id="copyRoomCodeBtn" class="btn btn-primary">Sao chép</button>
+            </div>
+            <p class="share-link">Hoặc chia sẻ link: <span id="shareLink"></span></p>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="moveSoundEffect" preload="auto">
+        <source th:src="@{/sounds/move.wav}" type="audio/wav">
+        <source th:src="@{/sounds/move.mp3}" type="audio/mp3">
+    </audio>
+    <audio id="captureSoundEffect" preload="auto">
+        <source th:src="@{/sounds/capture.wav}" type="audio/wav">
+        <source th:src="@{/sounds/capture.mp3}" type="audio/mp3">
+    </audio>
+
+    <!-- Game Data -->
+    <script th:inline="javascript">
+        // Game configuration
+        window.gameConfig = {
+            roomCode: /*[[${room.roomCode}]]*/ '',
+            playerId: /*[[${playerId}]]*/ '',
+            playerName: /*[[${playerName}]]*/ '',
+            playerColor: /*[[${playerColor}]]*/ '',
+            initialBoardState: /*[[${room.boardState}]]*/ '',
+            currentTurn: /*[[${room.currentTurn}]]*/ '',
+            gameStatus: /*[[${room.gameStatus}]]*/ '',
+            moveHistory: /*[[${room.moveHistory}]]*/ ''
+        };
+    </script>
+    
+    <script th:src="@{/js/chess-pieces.js}"></script>
+    <script th:src="@{/js/chess-board.js}"></script>
+    <script th:src="@{/js/game-websocket.js}"></script>
+    <script th:src="@{/js/game.js}"></script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cờ Tướng Online</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1>🏛️ Cờ Tướng Online</h1>
+            <p class="subtitle">Trải nghiệm cờ tướng Việt Nam chân thực</p>
+        </div>
+
+        <div class="content">
+            <div class="welcome-section">
+                <h2>Chào mừng đến với Cờ Tướng Online!</h2>
+                <p>Chơi cờ tướng với bạn bè một cách dễ dàng và thú vị</p>
+            </div>
+
+            <div class="actions">
+                <div class="action-card">
+                    <h3>🎮 Tạo phòng mới</h3>
+                    <p>Tạo phòng chơi và mời bạn bè tham gia</p>
+                    <button id="createRoomBtn" class="btn btn-primary">Tạo phòng</button>
+                </div>
+
+                <div class="action-card">
+                    <h3>🔗 Tham gia phòng</h3>
+                    <p>Nhập mã phòng để tham gia trận đấu</p>
+                    <div class="join-form">
+                        <input type="text" id="roomCodeInput" placeholder="Nhập mã phòng (6 số)" maxlength="6">
+                        <input type="text" id="playerNameInput" placeholder="Tên của bạn (tùy chọn)">
+                        <button id="joinRoomBtn" class="btn btn-secondary">Tham gia</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features">
+                <h3>✨ Tính năng nổi bật</h3>
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <span class="feature-icon">⚔️</span>
+                        <h4>Luật cờ tướng chuẩn</h4>
+                        <p>Tuân thủ đầy đủ luật chơi cờ tướng Việt Nam</p>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🎨</span>
+                        <h4>Giao diện đẹp mắt</h4>
+                        <p>Thiết kế hiện đại, responsive trên mọi thiết bị</p>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🌐</span>
+                        <h4>Chơi online real-time</h4>
+                        <p>Đấu với bạn bè qua mã phòng, cập nhật ngay lập tức</p>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">💬</span>
+                        <h4>Chat và voice call</h4>
+                        <p>Giao tiếp với đối thủ trong lúc chơi</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© 2025 Cờ Tướng Online - Được phát triển với ❤️</p>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loadingModal" class="modal">
+        <div class="modal-content">
+            <div class="loading-spinner"></div>
+            <p>Đang tạo phòng...</p>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="errorModal" class="modal">
+        <div class="modal-content">
+            <h3>❌ Có lỗi xảy ra</h3>
+            <p id="errorMessage">Đã có lỗi xảy ra, vui lòng thử lại.</p>
+            <button id="closeErrorBtn" class="btn btn-secondary">Đóng</button>
+        </div>
+    </div>
+
+    <script th:src="@{/js/index.js}"></script>
+</body>
+</html>
