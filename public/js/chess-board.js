@@ -7,8 +7,19 @@ class ChessBoard {
         this.gameState = 'waiting'; // waiting, playing, ended
         this.moveHistory = [];
         
+        // Timer settings
+        this.timePerPlayer = 10 * 60; // 10 minutes in seconds
+        this.redTimeLeft = this.timePerPlayer;
+        this.blackTimeLeft = this.timePerPlayer;
+        this.timerInterval = null;
+        this.lastMoveTime = Date.now();
+        
+        // Audio
+        this.audioManager = window.audioManager;
+        
         this.initializeBoard();
         this.renderBoard();
+        this.updateTimerDisplay();
     }
 
     initializeBoard() {
@@ -150,20 +161,29 @@ class ChessBoard {
         this.board[toRow][toCol] = piece;
         this.board[fromRow][fromCol] = null;
         
+        // Play sound effects
+        if (capturedPiece) {
+            this.audioManager?.playCaptureSound();
+        } else {
+            this.audioManager?.playMoveSound();
+        }
+        
         // Add to move history
         this.moveHistory.push({
             from: { row: fromRow, col: fromCol },
             to: { row: toRow, col: toCol },
             piece: piece,
             captured: capturedPiece,
-            player: this.currentPlayer
+            player: this.currentPlayer,
+            timeLeft: this.currentPlayer === 'red' ? this.redTimeLeft : this.blackTimeLeft
         });
 
         // Update move count
         document.getElementById('moveCount').textContent = this.moveHistory.length;
         
-        // Switch players
+        // Switch players and reset timer
         this.currentPlayer = this.currentPlayer === 'red' ? 'black' : 'red';
+        this.resetMoveTimer();
         this.updateTurnIndicator();
         
         // Render board
@@ -184,6 +204,11 @@ class ChessBoard {
         // Check for game end
         if (this.isGameOver()) {
             this.endGame();
+        } else {
+            // Check if near endgame (less than 2 minutes for either player)
+            if (this.redTimeLeft < 120 || this.blackTimeLeft < 120) {
+                this.audioManager?.startTenseMusic();
+            }
         }
 
         // Add move to chat
@@ -387,6 +412,9 @@ class ChessBoard {
             indicator.textContent = '⚫ Lượt của Đen';
             indicator.style.color = '#1f2937';
         }
+        
+        // Update active timer styling
+        this.updateActiveTimer();
     }
 
     isGameOver() {
@@ -407,10 +435,30 @@ class ChessBoard {
     endGame() {
         this.gameState = 'ended';
         const winner = this.currentPlayer === 'red' ? 'Đen' : 'Đỏ';
+        
+        // Stop timer
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+        }
+        
+        // Stop tense music
+        this.audioManager?.stopTenseMusic();
+        
+        // Play game over sound
+        this.audioManager?.playGameOverSound();
+        
         this.showMessage('Kết thúc game!', `🎉 Người chơi ${winner} thắng!`);
         
         document.getElementById('gameStatusInfo').textContent = `${winner} thắng`;
         document.getElementById('newGameBtn').style.display = 'inline-block';
+        
+        // Remove active timer styling
+        const redTimer = document.getElementById('redTimer');
+        const blackTimer = document.getElementById('blackTimer');
+        if (redTimer && blackTimer) {
+            redTimer.classList.remove('active', 'warning', 'danger');
+            blackTimer.classList.remove('active', 'warning', 'danger');
+        }
     }
 
     addMoveToChat(fromRow, fromCol, toRow, toCol, piece, captured) {
@@ -424,6 +472,18 @@ class ChessBoard {
         
         chatMessages.appendChild(moveMessage);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    addSystemMessage(message) {
+        const chatMessages = document.getElementById('chatMessages');
+        if (chatMessages) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'system-message';
+            messageElement.textContent = `🤖 ${message}`;
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
     }
 
     getPositionName(row, col) {
@@ -442,6 +502,7 @@ class ChessBoard {
         this.gameState = 'playing';
         this.currentPlayer = 'red';
         this.updateTurnIndicator();
+        this.startTimer();
         
         document.getElementById('gameStatusInfo').textContent = 'Đang chơi';
         document.getElementById('surrenderBtn').style.display = 'inline-block';
@@ -454,5 +515,129 @@ class ChessBoard {
         startMessage.textContent = '🎮 Game đã bắt đầu! Chúc các bạn chơi vui vẻ!';
         chatMessages.appendChild(startMessage);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    startTimer() {
+        this.lastMoveTime = Date.now();
+        this.timerInterval = setInterval(() => {
+            this.updateTimer();
+        }, 1000);
+        
+        // Set active timer
+        this.updateActiveTimer();
+    }
+
+    updateTimer() {
+        if (this.gameState !== 'playing') return;
+        
+        // Decrease current player's time
+        if (this.currentPlayer === 'red') {
+            this.redTimeLeft = Math.max(0, this.redTimeLeft - 1);
+        } else {
+            this.blackTimeLeft = Math.max(0, this.blackTimeLeft - 1);
+        }
+        
+        this.updateTimerDisplay();
+        this.checkTimeWarnings();
+        
+        // Check if time is up
+        if (this.redTimeLeft <= 0 || this.blackTimeLeft <= 0) {
+            this.timeUp();
+        }
+    }
+
+    resetMoveTimer() {
+        this.lastMoveTime = Date.now();
+        this.updateActiveTimer();
+    }
+
+    updateTimerDisplay() {
+        const redDisplay = document.getElementById('redTimeDisplay');
+        const blackDisplay = document.getElementById('blackTimeDisplay');
+        
+        if (redDisplay) {
+            redDisplay.textContent = this.formatTime(this.redTimeLeft);
+            redDisplay.className = 'timer-display';
+            if (this.redTimeLeft <= 30) {
+                redDisplay.classList.add('danger');
+            } else if (this.redTimeLeft <= 60) {
+                redDisplay.classList.add('warning');
+            }
+        }
+        
+        if (blackDisplay) {
+            blackDisplay.textContent = this.formatTime(this.blackTimeLeft);
+            blackDisplay.className = 'timer-display';
+            if (this.blackTimeLeft <= 30) {
+                blackDisplay.classList.add('danger');
+            } else if (this.blackTimeLeft <= 60) {
+                blackDisplay.classList.add('warning');
+            }
+        }
+    }
+
+    updateActiveTimer() {
+        const redTimer = document.getElementById('redTimer');
+        const blackTimer = document.getElementById('blackTimer');
+        
+        if (redTimer && blackTimer) {
+            redTimer.classList.remove('active', 'warning', 'danger');
+            blackTimer.classList.remove('active', 'warning', 'danger');
+            
+            const activeTimer = this.currentPlayer === 'red' ? redTimer : blackTimer;
+            const activeTime = this.currentPlayer === 'red' ? this.redTimeLeft : this.blackTimeLeft;
+            
+            activeTimer.classList.add('active');
+            
+            if (activeTime <= 30) {
+                activeTimer.classList.add('danger');
+            } else if (activeTime <= 60) {
+                activeTimer.classList.add('warning');
+            }
+        }
+    }
+
+    checkTimeWarnings() {
+        const currentTime = this.currentPlayer === 'red' ? this.redTimeLeft : this.blackTimeLeft;
+        
+        // Play warning sounds
+        if (currentTime === 60) {
+            this.audioManager?.playTimerWarning();
+        } else if (currentTime <= 30 && currentTime % 5 === 0) {
+            this.audioManager?.playTimerDanger();
+        } else if (currentTime <= 10) {
+            this.audioManager?.playTimerDanger();
+        }
+    }
+
+    timeUp() {
+        this.gameState = 'ended';
+        const loser = this.currentPlayer;
+        const winner = loser === 'red' ? 'Đen' : 'Đỏ';
+        
+        // Stop timer
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+        }
+        
+        // Stop tense music
+        this.audioManager?.stopTenseMusic();
+        
+        // Play game over sound
+        this.audioManager?.playGameOverSound();
+        
+        this.showMessage('Hết giờ!', `⏰ Người chơi ${loser === 'red' ? 'Đỏ' : 'Đen'} đã hết thời gian!\n🎉 ${winner} thắng!`);
+        
+        document.getElementById('gameStatusInfo').textContent = `${winner} thắng (hết giờ)`;
+        document.getElementById('newGameBtn').style.display = 'inline-block';
+        
+        // Add to chat
+        this.addSystemMessage(`⏰ Hết giờ! ${winner} thắng!`);
+    }
+
+    formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     }
 }

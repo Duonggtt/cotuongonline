@@ -35,6 +35,10 @@
                         <span class="player-name" id="redPlayerName">Người chơi Đỏ</span>
                         <span class="player-status">Đang chờ...</span>
                     </div>
+                    <div class="player-timer" id="redTimer">
+                        <span class="timer-label">⏱️</span>
+                        <span class="timer-display" id="redTimeDisplay">10:00</span>
+                    </div>
                 </div>
 
                 <div class="chess-board-container">
@@ -56,6 +60,10 @@
                     <div class="player-details">
                         <span class="player-name" id="blackPlayerName">Đang chờ đối thủ...</span>
                         <span class="player-status">Chưa tham gia</span>
+                    </div>
+                    <div class="player-timer" id="blackTimer">
+                        <span class="timer-label">⏱️</span>
+                        <span class="timer-display" id="blackTimeDisplay">10:00</span>
                     </div>
                 </div>
             </div>
@@ -132,8 +140,29 @@
         </div>
     </div>
 
+    <!-- Audio elements -->
+    <audio id="moveSoundEffect" preload="auto">
+        <!-- Tạo âm thanh bằng Web Audio API -->
+    </audio>
+    <audio id="captureSoundEffect" preload="auto">
+        <!-- Tạo âm thanh bằng Web Audio API -->
+    </audio>
+    <audio id="checkSoundEffect" preload="auto">
+        <!-- Âm thanh chiếu -->
+    </audio>
+    <audio id="gameOverSound" preload="auto">
+        <!-- Âm thanh kết thúc game -->
+    </audio>
+    <audio id="tenseMusicBackground" preload="auto" loop>
+        <!-- Nhạc nền căng thẳng cuối game -->
+    </audio>
+    <audio id="timerWarningSound" preload="auto">
+        <!-- Âm thanh cảnh báo hết giờ -->
+    </audio>
+
     <script src="./js/chess-game.js"></script>
     <script src="./js/chess-board.js"></script>
     <script src="./js/game-ui.js"></script>
+    <script src="./js/audio-manager.js"></script>
 </body>
 </html>
