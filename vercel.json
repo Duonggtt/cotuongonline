@@ -13,5 +13,10 @@
   ],
   "env": {
     "SPRING_PROFILES_ACTIVE": "prod"
+  },
+  "functions": {
+    "src/main/java/com/cotuong/CoTuongOnlineApplication.java": {
+      "runtime": "java17"
+    }
   }
 }
