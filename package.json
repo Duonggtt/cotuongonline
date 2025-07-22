@@ -1,0 +1,13 @@
+{
+  "name": "cotuongonline-frontend",
+  "version": "1.0.0",
+  "description": "Vietnamese Chess Online - Frontend Demo",
+  "main": "public/index.html",
+  "scripts": {
+    "build": "echo 'Static files ready for deployment'",
+    "start": "echo 'Static site - no server needed'"
+  },
+  "keywords": ["vietnamese-chess", "cờ-tướng", "online-game", "frontend", "demo"],
+  "author": "Duonggtt",
+  "license": "MIT"
+}

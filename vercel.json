@@ -1,17 +1,8 @@
 {
-  "builds": [
+  "rewrites": [
     {
-      "src": "pom.xml",
-      "use": "@vercel/java"
+      "source": "/(.*)",
+      "destination": "/public/$1"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/"
-    }
-  ],
-  "env": {
-    "SPRING_PROFILES_ACTIVE": "prod"
-  }
+  ]
 }
