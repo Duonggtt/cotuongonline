@@ -6,6 +6,10 @@ class ChessBoard {
         this.selectedPiece = null;
         this.gameState = 'waiting'; // waiting, playing, ended
         this.moveHistory = [];
+        this.playersReady = false; // Track if both players joined
+        this.playerColor = null; // Màu cờ của người chơi hiện tại (red/black)
+        this.isPlayerTurn = false; // Có phải lượt của người chơi không
+        this.moveCallback = null; // Callback khi có nước đi
         
         // Timer settings
         this.timePerPlayer = 10 * 60; // 10 minutes in seconds
@@ -77,6 +81,12 @@ class ChessBoard {
     handleCellClick(row, col) {
         if (this.gameState !== 'playing') {
             this.showMessage('Game chưa bắt đầu!', 'Đang chờ đối thủ tham gia...');
+            return;
+        }
+
+        // Kiểm tra có phải lượt của người chơi không
+        if (!this.isPlayerTurn) {
+            this.showMessage('Chưa đến lượt của bạn!', 'Vui lòng đợi đối thủ di chuyển.');
             return;
         }
 
@@ -180,6 +190,16 @@ class ChessBoard {
 
         // Update move count
         document.getElementById('moveCount').textContent = this.moveHistory.length;
+        
+        // Call move callback for multiplayer sync
+        if (this.moveCallback) {
+            this.moveCallback({
+                from: { row: fromRow, col: fromCol },
+                to: { row: toRow, col: toCol },
+                piece: piece,
+                captured: capturedPiece
+            });
+        }
         
         // Switch players and reset timer
         this.currentPlayer = this.currentPlayer === 'red' ? 'black' : 'red';
@@ -386,8 +406,14 @@ class ChessBoard {
     }
 
     isCurrentPlayerPiece(piece) {
-        return (this.currentPlayer === 'red' && this.isRedPiece(piece)) ||
-               (this.currentPlayer === 'black' && !this.isRedPiece(piece));
+        // Chỉ kiểm tra piece của người chơi hiện tại dựa vào playerColor
+        if (!this.playerColor || !piece) return false;
+        
+        if (this.playerColor === 'red') {
+            return this.isRedPiece(piece);
+        } else {
+            return !this.isRedPiece(piece);
+        }
     }
 
     getPieceSymbol(piece) {
@@ -501,8 +527,9 @@ class ChessBoard {
     startGame() {
         this.gameState = 'playing';
         this.currentPlayer = 'red';
+        this.playersReady = true; // Mark that both players are ready
         this.updateTurnIndicator();
-        this.startTimer();
+        this.startTimer(); // Now start timer when both players are ready
         
         document.getElementById('gameStatusInfo').textContent = 'Đang chơi';
         document.getElementById('surrenderBtn').style.display = 'inline-block';
@@ -518,6 +545,12 @@ class ChessBoard {
     }
 
     startTimer() {
+        // Only start timer if both players are ready
+        if (!this.playersReady) {
+            console.log('Timer not started - waiting for both players');
+            return;
+        }
+        
         this.lastMoveTime = Date.now();
         this.timerInterval = setInterval(() => {
             this.updateTimer();
@@ -633,6 +666,37 @@ class ChessBoard {
         
         // Add to chat
         this.addSystemMessage(`⏰ Hết giờ! ${winner} thắng!`);
+    }
+
+    // Method to manually start timer when both players are ready
+    forceStartTimer() {
+        this.playersReady = true;
+        this.startTimer();
+    }
+
+    // Method to check and start game when both players joined
+    checkAndStartGame() {
+        if (!this.playersReady && this.gameState === 'waiting') {
+            this.playersReady = true;
+            this.startGame();
+        }
+    }
+
+    // Set player color from backend
+    setPlayerColor(color) {
+        this.playerColor = color;
+        console.log('Player color set to:', color);
+    }
+
+    // Set player turn
+    setPlayerTurn(isPlayerTurn) {
+        this.isPlayerTurn = isPlayerTurn;
+        console.log('Player turn:', isPlayerTurn);
+    }
+
+    // Set move callback
+    onMove(callback) {
+        this.moveCallback = callback;
     }
 
     formatTime(seconds) {

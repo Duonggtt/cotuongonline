@@ -1,408 +1,707 @@
-// Chess Board Management
+// Chess Board Logic for Vietnamese Chess (Cờ Tướng)
 class ChessBoard {
-    constructor(containerId, config) {
-        this.container = document.getElementById(containerId);
-        this.config = config;
+    constructor() {
         this.board = [];
-        this.selectedCell = null;
-        this.validMoves = [];
-        this.isPlayerTurn = false;
-        this.onMoveCallback = null;
-        this.onSelectCallback = null;
+        this.currentPlayer = 'red';
+        this.selectedPiece = null;
+        this.gameState = 'waiting'; // waiting, playing, ended
+        this.moveHistory = [];
+        this.playersReady = false; // Track if both players joined
+        this.playerColor = null; // Màu cờ của người chơi hiện tại (red/black)
+        this.isPlayerTurn = false; // Có phải lượt của người chơi không
+        this.moveCallback = null; // Callback khi có nước đi
         
-        this.init();
+        // Timer settings
+        this.timePerPlayer = 10 * 60; // 10 minutes in seconds
+        this.redTimeLeft = this.timePerPlayer;
+        this.blackTimeLeft = this.timePerPlayer;
+        this.timerInterval = null;
+        this.lastMoveTime = Date.now();
+        
+        // Audio
+        this.audioManager = window.audioManager;
+        
+        this.initializeBoard();
+        this.renderBoard();
+        this.updateTimerDisplay();
     }
 
-    init() {
-        if (!this.container) {
-            console.error('Chess board container not found');
+    initializeBoard() {
+        // Initialize empty 10x9 board
+        this.board = Array(10).fill().map(() => Array(9).fill(null));
+        
+        // Red pieces (bottom)
+        this.board[9] = ['r', 'h', 'e', 'a', 'k', 'a', 'e', 'h', 'r'];
+        this.board[7] = [null, null, null, null, null, null, null, null, null];
+        this.board[7][1] = 'c'; // Cannon
+        this.board[7][7] = 'c';
+        this.board[6] = ['p', null, 'p', null, 'p', null, 'p', null, 'p'];
+
+        // Black pieces (top)
+        this.board[0] = ['R', 'H', 'E', 'A', 'K', 'A', 'E', 'H', 'R'];
+        this.board[2] = [null, null, null, null, null, null, null, null, null];
+        this.board[2][1] = 'C'; // Cannon
+        this.board[2][7] = 'C';
+        this.board[3] = ['P', null, 'P', null, 'P', null, 'P', null, 'P'];
+    }
+
+    renderBoard() {
+        const boardElement = document.getElementById('chessBoard');
+        boardElement.innerHTML = '';
+
+        for (let row = 0; row < 10; row++) {
+            for (let col = 0; col < 9; col++) {
+                const cell = document.createElement('div');
+                cell.className = 'chess-cell';
+                cell.dataset.row = row;
+                cell.dataset.col = col;
+
+                // Add special area classes
+                if (row === 4 || row === 5) {
+                    cell.classList.add('river');
+                }
+                if ((row <= 2 && col >= 3 && col <= 5) || (row >= 7 && col >= 3 && col <= 5)) {
+                    cell.classList.add('palace');
+                }
+
+                const piece = this.board[row][col];
+                if (piece) {
+                    const pieceElement = document.createElement('div');
+                    pieceElement.className = `chess-piece ${this.isRedPiece(piece) ? 'red' : 'black'}`;
+                    pieceElement.textContent = this.getPieceSymbol(piece);
+                    cell.appendChild(pieceElement);
+                }
+
+                cell.addEventListener('click', () => this.handleCellClick(row, col));
+                boardElement.appendChild(cell);
+            }
+        }
+    }
+
+    handleCellClick(row, col) {
+        if (this.gameState !== 'playing') {
+            this.showMessage('Game chưa bắt đầu!', 'Đang chờ đối thủ tham gia...');
             return;
         }
 
-        this.container.innerHTML = '';
-        this.container.className = 'chess-board';
-        
-        // Create grid cells
-        for (let row = 0; row < 10; row++) {
-            for (let col = 0; col < 9; col++) {
-                const cell = this.createCell(row, col);
-                this.container.appendChild(cell);
-            }
-        }
-
-        // Add board decorations
-        this.addBoardDecorations();
-        
-        // Parse and display initial board state
-        if (this.config.initialBoardState) {
-            this.updateBoard(this.config.initialBoardState);
-        }
-        
-        this.updateTurnIndicator();
-    }
-
-    createCell(row, col) {
-        const cell = document.createElement('div');
-        cell.className = 'chess-cell';
-        cell.dataset.row = row;
-        cell.dataset.col = col;
-        
-        // Position the cell
-        cell.style.left = `${col * 60}px`;
-        cell.style.top = `${row * 60}px`;
-        
-        // Add click handler
-        cell.addEventListener('click', (e) => this.handleCellClick(row, col, e));
-        
-        return cell;
-    }
-
-    addBoardDecorations() {
-        // Add river decoration
-        const river = document.createElement('div');
-        river.className = 'board-river';
-        river.style.position = 'absolute';
-        river.style.top = '240px';
-        river.style.left = '0';
-        river.style.right = '0';
-        river.style.height = '120px';
-        river.style.background = 'linear-gradient(to bottom, transparent 0%, rgba(56, 178, 172, 0.2) 50%, transparent 100%)';
-        river.style.pointerEvents = 'none';
-        river.style.zIndex = '0';
-        this.container.appendChild(river);
-
-        // Add palace markings
-        this.addPalaceLines();
-        
-        // Add coordinate labels
-        this.addCoordinateLabels();
-    }
-
-    addPalaceLines() {
-        // Red palace
-        const redPalace = document.createElement('div');
-        redPalace.className = 'palace-lines red-palace';
-        redPalace.innerHTML = `
-            <svg width="180" height="180" style="position: absolute; top: 420px; left: 180px; pointer-events: none; z-index: 1;">
-                <line x1="0" y1="0" x2="180" y2="180" stroke="#8B4513" stroke-width="2"/>
-                <line x1="180" y1="0" x2="0" y2="180" stroke="#8B4513" stroke-width="2"/>
-            </svg>
-        `;
-        this.container.appendChild(redPalace);
-
-        // Black palace  
-        const blackPalace = document.createElement('div');
-        blackPalace.className = 'palace-lines black-palace';
-        blackPalace.innerHTML = `
-            <svg width="180" height="180" style="position: absolute; top: 0px; left: 180px; pointer-events: none; z-index: 1;">
-                <line x1="0" y1="0" x2="180" y2="180" stroke="#8B4513" stroke-width="2"/>
-                <line x1="180" y1="0" x2="0" y2="180" stroke="#8B4513" stroke-width="2"/>
-            </svg>
-        `;
-        this.container.appendChild(blackPalace);
-    }
-
-    addCoordinateLabels() {
-        // Add row numbers (1-10)
-        for (let row = 0; row < 10; row++) {
-            const label = document.createElement('div');
-            label.className = 'coordinate-label row-label';
-            label.textContent = row + 1;
-            label.style.position = 'absolute';
-            label.style.left = '-25px';
-            label.style.top = `${row * 60 + 20}px`;
-            label.style.fontSize = '12px';
-            label.style.color = '#8B4513';
-            label.style.fontWeight = 'bold';
-            this.container.appendChild(label);
-        }
-
-        // Add column letters (a-i)
-        const columns = 'abcdefghi';
-        for (let col = 0; col < 9; col++) {
-            const label = document.createElement('div');
-            label.className = 'coordinate-label col-label';
-            label.textContent = columns[col];
-            label.style.position = 'absolute';
-            label.style.left = `${col * 60 + 25}px`;
-            label.style.top = '-25px';
-            label.style.fontSize = '12px';
-            label.style.color = '#8B4513';
-            label.style.fontWeight = 'bold';
-            this.container.appendChild(label);
-        }
-    }
-
-    updateBoard(boardState) {
-        // Parse board state string
-        this.board = this.parseBoardState(boardState);
-        
-        // Clear all pieces
-        this.container.querySelectorAll('.chess-piece').forEach(piece => piece.remove());
-        
-        // Place pieces on board
-        for (let row = 0; row < 10; row++) {
-            for (let col = 0; col < 9; col++) {
-                const pieceType = this.board[row][col];
-                if (pieceType && pieceType !== 'empty') {
-                    this.placePiece(pieceType, row, col);
-                }
-            }
-        }
-        
-        this.clearSelection();
-    }
-
-    parseBoardState(boardState) {
-        const board = [];
-        const rows = boardState.split(';');
-        
-        for (let i = 0; i < 10; i++) {
-            board[i] = [];
-            if (i < rows.length) {
-                const cols = rows[i].split(',');
-                for (let j = 0; j < 9; j++) {
-                    board[i][j] = j < cols.length ? cols[j] : 'empty';
-                }
-            } else {
-                for (let j = 0; j < 9; j++) {
-                    board[i][j] = 'empty';
-                }
-            }
-        }
-        
-        return board;
-    }
-
-    placePiece(pieceType, row, col) {
-        const cell = this.getCell(row, col);
-        if (!cell) return;
-
-        const piece = window.ChessPieces.createPieceElement(pieceType, row, col);
-        if (piece) {
-            cell.appendChild(piece);
-        }
-    }
-
-    getCell(row, col) {
-        return this.container.querySelector(`[data-row="${row}"][data-col="${col}"]`);
-    }
-
-    getPieceAt(row, col) {
-        const cell = this.getCell(row, col);
-        const piece = cell?.querySelector('.chess-piece');
-        return piece?.dataset.piece || 'empty';
-    }
-
-    handleCellClick(row, col, event) {
-        event.stopPropagation();
-        
+        // Kiểm tra có phải lượt của người chơi không
         if (!this.isPlayerTurn) {
+            this.showMessage('Chưa đến lượt của bạn!', 'Vui lòng đợi đối thủ di chuyển.');
             return;
         }
 
-        const cell = this.getCell(row, col);
-        const piece = this.getPieceAt(row, col);
-        
-        // If clicking on valid move destination
-        if (this.selectedCell && this.isValidMoveDestination(row, col)) {
-            this.makeMove(this.selectedCell.row, this.selectedCell.col, row, col);
-            return;
-        }
-        
-        // If clicking on own piece
-        if (piece !== 'empty' && this.isOwnPiece(piece)) {
-            this.selectCell(row, col);
-            this.requestValidMoves(row, col);
-            return;
-        }
-        
-        // Clear selection if clicking elsewhere
-        this.clearSelection();
-    }
+        const piece = this.board[row][col];
+        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
 
-    selectCell(row, col) {
-        this.clearSelection();
-        
-        const cell = this.getCell(row, col);
-        if (cell) {
-            cell.classList.add('selected');
-            this.selectedCell = { row, col };
-            
-            const piece = cell.querySelector('.chess-piece');
-            if (piece) {
-                window.ChessPieces.highlightPiece(piece, true);
+        // If no piece is selected
+        if (!this.selectedPiece) {
+            if (piece && this.isCurrentPlayerPiece(piece)) {
+                this.selectPiece(row, col);
             }
+            return;
         }
 
-        if (this.onSelectCallback) {
-            this.onSelectCallback(row, col);
+        // If clicking on the same piece
+        if (this.selectedPiece.row === row && this.selectedPiece.col === col) {
+            this.deselectPiece();
+            return;
+        }
+
+        // If clicking on own piece
+        if (piece && this.isCurrentPlayerPiece(piece)) {
+            this.deselectPiece();
+            this.selectPiece(row, col);
+            return;
+        }
+
+        // Try to move piece
+        if (this.isValidMove(this.selectedPiece.row, this.selectedPiece.col, row, col)) {
+            this.makeMove(this.selectedPiece.row, this.selectedPiece.col, row, col);
+        } else {
+            this.showMessage('Nước đi không hợp lệ!', 'Vui lòng chọn nước đi khác.');
         }
     }
 
-    clearSelection() {
-        // Remove selected class
-        this.container.querySelectorAll('.selected').forEach(cell => {
-            cell.classList.remove('selected');
-        });
+    selectPiece(row, col) {
+        this.deselectPiece();
+        this.selectedPiece = { row, col };
         
-        // Remove piece highlights
-        this.container.querySelectorAll('.chess-piece').forEach(piece => {
-            window.ChessPieces.highlightPiece(piece, false);
-        });
+        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+        cell.classList.add('selected');
         
-        // Clear valid moves
-        this.clearValidMoves();
-        
-        this.selectedCell = null;
+        // Highlight possible moves
+        this.highlightPossibleMoves(row, col);
     }
 
-    clearValidMoves() {
-        this.container.querySelectorAll('.valid-move').forEach(cell => {
-            cell.classList.remove('valid-move', 'capture');
-        });
-        this.validMoves = [];
+    deselectPiece() {
+        if (this.selectedPiece) {
+            const cell = document.querySelector(`[data-row="${this.selectedPiece.row}"][data-col="${this.selectedPiece.col}"]`);
+            cell?.classList.remove('selected');
+        }
+        this.selectedPiece = null;
+        this.clearHighlights();
     }
 
-    showValidMoves(moves) {
-        this.clearValidMoves();
-        this.validMoves = moves;
-        
-        moves.forEach(([row, col]) => {
-            const cell = this.getCell(row, col);
-            if (cell) {
-                cell.classList.add('valid-move');
-                
-                // Check if this is a capture move
-                const targetPiece = this.getPieceAt(row, col);
-                if (targetPiece !== 'empty') {
-                    cell.classList.add('capture');
+    highlightPossibleMoves(row, col) {
+        for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (this.isValidMove(row, col, r, c)) {
+                    const cell = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+                    if (this.board[r][c] && !this.isCurrentPlayerPiece(this.board[r][c])) {
+                        cell.classList.add('enemy-piece');
+                    } else {
+                        cell.classList.add('possible-move');
+                    }
                 }
             }
+        }
+    }
+
+    clearHighlights() {
+        document.querySelectorAll('.chess-cell').forEach(cell => {
+            cell.classList.remove('possible-move', 'enemy-piece', 'last-move');
         });
-    }
-
-    isValidMoveDestination(row, col) {
-        return this.validMoves.some(([r, c]) => r === row && c === col);
-    }
-
-    isOwnPiece(pieceType) {
-        if (!pieceType || pieceType === 'empty') return false;
-        
-        const pieceColor = window.ChessPieces.getPieceColor(pieceType);
-        const playerColor = this.config.playerColor?.toLowerCase();
-        
-        return pieceColor === playerColor;
     }
 
     makeMove(fromRow, fromCol, toRow, toCol) {
-        if (!this.onMoveCallback) return;
+        const piece = this.board[fromRow][fromCol];
+        const capturedPiece = this.board[toRow][toCol];
         
-        const move = {
-            fromRow,
-            fromCol,
-            toRow,
-            toCol,
-            playerId: this.config.playerId,
-            roomCode: this.config.roomCode
-        };
+        // Make the move
+        this.board[toRow][toCol] = piece;
+        this.board[fromRow][fromCol] = null;
         
-        this.onMoveCallback(move);
+        // Play sound effects
+        if (capturedPiece) {
+            this.audioManager?.playCaptureSound();
+        } else {
+            this.audioManager?.playMoveSound();
+        }
+        
+        // Add to move history
+        this.moveHistory.push({
+            from: { row: fromRow, col: fromCol },
+            to: { row: toRow, col: toCol },
+            piece: piece,
+            captured: capturedPiece,
+            player: this.currentPlayer,
+            timeLeft: this.currentPlayer === 'red' ? this.redTimeLeft : this.blackTimeLeft
+        });
+
+        // Update move count
+        document.getElementById('moveCount').textContent = this.moveHistory.length;
+        
+        // Call move callback for multiplayer sync
+        if (this.moveCallback) {
+            this.moveCallback({
+                from: { row: fromRow, col: fromCol },
+                to: { row: toRow, col: toCol },
+                piece: piece,
+                captured: capturedPiece
+            });
+        }
+        
+        // Switch players and reset timer
+        this.currentPlayer = this.currentPlayer === 'red' ? 'black' : 'red';
+        this.resetMoveTimer();
+        this.updateTurnIndicator();
+        
+        // Render board
+        this.deselectPiece();
+        this.renderBoard();
+        
+        // Highlight last move
+        const toCell = document.querySelector(`[data-row="${toRow}"][data-col="${toCol}"]`);
+        toCell.classList.add('last-move');
+        
+        // Add move animation
+        const pieceElement = toCell.querySelector('.chess-piece');
+        if (pieceElement) {
+            pieceElement.classList.add('moving');
+            setTimeout(() => pieceElement.classList.remove('moving'), 300);
+        }
+
+        // Check for game end
+        if (this.isGameOver()) {
+            this.endGame();
+        } else {
+            // Check if near endgame (less than 2 minutes for either player)
+            if (this.redTimeLeft < 120 || this.blackTimeLeft < 120) {
+                this.audioManager?.startTenseMusic();
+            }
+        }
+
+        // Add move to chat
+        this.addMoveToChat(fromRow, fromCol, toRow, toCol, piece, capturedPiece);
     }
 
-    requestValidMoves(row, col) {
-        if (window.gameWebSocket && window.gameWebSocket.requestValidMoves) {
-            window.gameWebSocket.requestValidMoves(row, col);
+    isValidMove(fromRow, fromCol, toRow, toCol) {
+        // Basic bounds check
+        if (toRow < 0 || toRow >= 10 || toCol < 0 || toCol >= 9) return false;
+        
+        // Can't move to same position
+        if (fromRow === toRow && fromCol === toCol) return false;
+        
+        // Can't capture own piece
+        const targetPiece = this.board[toRow][toCol];
+        if (targetPiece && this.isCurrentPlayerPiece(targetPiece)) return false;
+        
+        const piece = this.board[fromRow][fromCol];
+        if (!piece) return false;
+        
+        // Piece-specific movement rules (simplified)
+        const pieceType = piece.toLowerCase();
+        
+        switch (pieceType) {
+            case 'p': // Pawn
+                return this.isValidPawnMove(fromRow, fromCol, toRow, toCol, piece);
+            case 'r': // Rook (Xe)
+                return this.isValidRookMove(fromRow, fromCol, toRow, toCol);
+            case 'h': // Horse (Mã)
+                return this.isValidHorseMove(fromRow, fromCol, toRow, toCol);
+            case 'e': // Elephant (Voi)
+                return this.isValidElephantMove(fromRow, fromCol, toRow, toCol, piece);
+            case 'a': // Advisor (Sĩ)
+                return this.isValidAdvisorMove(fromRow, fromCol, toRow, toCol, piece);
+            case 'k': // King (Tướng)
+                return this.isValidKingMove(fromRow, fromCol, toRow, toCol, piece);
+            case 'c': // Cannon (Pháo)
+                return this.isValidCannonMove(fromRow, fromCol, toRow, toCol);
+            default:
+                return false;
         }
     }
 
-    highlightLastMove(fromRow, fromCol, toRow, toCol) {
-        // Remove previous last-move highlights
-        this.container.querySelectorAll('.last-move').forEach(cell => {
-            cell.classList.remove('last-move');
-        });
+    isValidPawnMove(fromRow, fromCol, toRow, toCol, piece) {
+        const isRed = this.isRedPiece(piece);
+        const direction = isRed ? -1 : 1; // Red moves up, Black moves down
+        const hasPassedRiver = isRed ? fromRow <= 4 : fromRow >= 5;
         
-        // Add new highlights
-        const fromCell = this.getCell(fromRow, fromCol);
-        const toCell = this.getCell(toRow, toCol);
+        // Forward movement
+        if (toCol === fromCol && toRow === fromRow + direction) return true;
         
-        if (fromCell) fromCell.classList.add('last-move');
-        if (toCell) toCell.classList.add('last-move');
+        // Sideways movement (only after crossing river)
+        if (hasPassedRiver && toRow === fromRow && Math.abs(toCol - fromCol) === 1) return true;
+        
+        return false;
     }
 
-    highlightCheck(kingRow, kingCol) {
-        // Remove previous check highlights
-        this.container.querySelectorAll('.in-check').forEach(cell => {
-            cell.classList.remove('in-check');
-        });
+    isValidRookMove(fromRow, fromCol, toRow, toCol) {
+        // Rook moves horizontally or vertically
+        if (fromRow !== toRow && fromCol !== toCol) return false;
         
-        // Add check highlight
-        if (kingRow !== undefined && kingCol !== undefined) {
-            const kingCell = this.getCell(kingRow, kingCol);
-            if (kingCell) {
-                kingCell.classList.add('in-check');
+        // Check for obstacles in path
+        return this.isPathClear(fromRow, fromCol, toRow, toCol);
+    }
+
+    isValidHorseMove(fromRow, fromCol, toRow, toCol) {
+        const rowDiff = Math.abs(toRow - fromRow);
+        const colDiff = Math.abs(toCol - fromCol);
+        
+        // Horse moves in L-shape: 2+1 or 1+2
+        if (!((rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2))) return false;
+        
+        // Check blocking point
+        let blockRow, blockCol;
+        if (rowDiff === 2) {
+            blockRow = fromRow + (toRow - fromRow) / 2;
+            blockCol = fromCol;
+        } else {
+            blockRow = fromRow;
+            blockCol = fromCol + (toCol - fromCol) / 2;
+        }
+        
+        return !this.board[blockRow][blockCol]; // No piece blocking
+    }
+
+    isValidElephantMove(fromRow, fromCol, toRow, toCol, piece) {
+        const isRed = this.isRedPiece(piece);
+        
+        // Elephant can't cross river
+        if (isRed && toRow <= 4) return false;
+        if (!isRed && toRow >= 5) return false;
+        
+        // Elephant moves diagonally 2 points
+        const rowDiff = Math.abs(toRow - fromRow);
+        const colDiff = Math.abs(toCol - fromCol);
+        if (rowDiff !== 2 || colDiff !== 2) return false;
+        
+        // Check blocking point
+        const blockRow = fromRow + (toRow - fromRow) / 2;
+        const blockCol = fromCol + (toCol - fromCol) / 2;
+        return !this.board[blockRow][blockCol];
+    }
+
+    isValidAdvisorMove(fromRow, fromCol, toRow, toCol, piece) {
+        const isRed = this.isRedPiece(piece);
+        
+        // Advisor stays in palace
+        if (isRed) {
+            if (toRow < 7 || toCol < 3 || toCol > 5) return false;
+        } else {
+            if (toRow > 2 || toCol < 3 || toCol > 5) return false;
+        }
+        
+        // Advisor moves diagonally one point
+        const rowDiff = Math.abs(toRow - fromRow);
+        const colDiff = Math.abs(toCol - fromCol);
+        return rowDiff === 1 && colDiff === 1;
+    }
+
+    isValidKingMove(fromRow, fromCol, toRow, toCol, piece) {
+        const isRed = this.isRedPiece(piece);
+        
+        // King stays in palace
+        if (isRed) {
+            if (toRow < 7 || toCol < 3 || toCol > 5) return false;
+        } else {
+            if (toRow > 2 || toCol < 3 || toCol > 5) return false;
+        }
+        
+        // King moves one point horizontally or vertically
+        const rowDiff = Math.abs(toRow - fromRow);
+        const colDiff = Math.abs(toCol - fromCol);
+        return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+    }
+
+    isValidCannonMove(fromRow, fromCol, toRow, toCol) {
+        // Cannon moves like rook but jumps over exactly one piece to capture
+        if (fromRow !== toRow && fromCol !== toCol) return false;
+        
+        const targetPiece = this.board[toRow][toCol];
+        const piecesInPath = this.countPiecesInPath(fromRow, fromCol, toRow, toCol);
+        
+        if (targetPiece) {
+            // Capturing: need exactly one piece in between
+            return piecesInPath === 1;
+        } else {
+            // Moving: path must be clear
+            return piecesInPath === 0;
+        }
+    }
+
+    isPathClear(fromRow, fromCol, toRow, toCol) {
+        return this.countPiecesInPath(fromRow, fromCol, toRow, toCol) === 0;
+    }
+
+    countPiecesInPath(fromRow, fromCol, toRow, toCol) {
+        let count = 0;
+        const rowStep = toRow === fromRow ? 0 : (toRow - fromRow) / Math.abs(toRow - fromRow);
+        const colStep = toCol === fromCol ? 0 : (toCol - fromCol) / Math.abs(toCol - fromCol);
+        
+        let currentRow = fromRow + rowStep;
+        let currentCol = fromCol + colStep;
+        
+        while (currentRow !== toRow || currentCol !== toCol) {
+            if (this.board[currentRow][currentCol]) count++;
+            currentRow += rowStep;
+            currentCol += colStep;
+        }
+        
+        return count;
+    }
+
+    isRedPiece(piece) {
+        return piece && piece === piece.toLowerCase();
+    }
+
+    isCurrentPlayerPiece(piece) {
+        // Chỉ kiểm tra piece của người chơi hiện tại dựa vào playerColor
+        if (!this.playerColor || !piece) return false;
+        
+        if (this.playerColor === 'red') {
+            return this.isRedPiece(piece);
+        } else {
+            return !this.isRedPiece(piece);
+        }
+    }
+
+    getPieceSymbol(piece) {
+        const symbols = {
+            'k': '帥', 'K': '將', // King
+            'a': '仕', 'A': '士', // Advisor
+            'e': '相', 'E': '象', // Elephant
+            'h': '傌', 'H': '馬', // Horse
+            'r': '俥', 'R': '車', // Rook
+            'c': '炮', 'C': '砲', // Cannon
+            'p': '兵', 'P': '卒'  // Pawn
+        };
+        return symbols[piece] || piece;
+    }
+
+    updateTurnIndicator() {
+        const indicator = document.getElementById('turnIndicator');
+        if (this.currentPlayer === 'red') {
+            indicator.textContent = '🔴 Lượt của Đỏ';
+            indicator.style.color = '#dc2626';
+        } else {
+            indicator.textContent = '⚫ Lượt của Đen';
+            indicator.style.color = '#1f2937';
+        }
+        
+        // Update active timer styling
+        this.updateActiveTimer();
+    }
+
+    isGameOver() {
+        // Simplified game over check - just check if king is captured
+        let redKing = false, blackKing = false;
+        
+        for (let row = 0; row < 10; row++) {
+            for (let col = 0; col < 9; col++) {
+                const piece = this.board[row][col];
+                if (piece === 'k') redKing = true;
+                if (piece === 'K') blackKing = true;
+            }
+        }
+        
+        return !redKing || !blackKing;
+    }
+
+    endGame() {
+        this.gameState = 'ended';
+        const winner = this.currentPlayer === 'red' ? 'Đen' : 'Đỏ';
+        
+        // Stop timer
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+        }
+        
+        // Stop tense music
+        this.audioManager?.stopTenseMusic();
+        
+        // Play game over sound
+        this.audioManager?.playGameOverSound();
+        
+        this.showMessage('Kết thúc game!', `🎉 Người chơi ${winner} thắng!`);
+        
+        document.getElementById('gameStatusInfo').textContent = `${winner} thắng`;
+        document.getElementById('newGameBtn').style.display = 'inline-block';
+        
+        // Remove active timer styling
+        const redTimer = document.getElementById('redTimer');
+        const blackTimer = document.getElementById('blackTimer');
+        if (redTimer && blackTimer) {
+            redTimer.classList.remove('active', 'warning', 'danger');
+            blackTimer.classList.remove('active', 'warning', 'danger');
+        }
+    }
+
+    addMoveToChat(fromRow, fromCol, toRow, toCol, piece, captured) {
+        const chatMessages = document.getElementById('chatMessages');
+        const moveText = `${this.getPieceSymbol(piece)} ${this.getPositionName(fromRow, fromCol)} → ${this.getPositionName(toRow, toCol)}`;
+        const captureText = captured ? ` (ăn ${this.getPieceSymbol(captured)})` : '';
+        
+        const moveMessage = document.createElement('div');
+        moveMessage.className = 'system-message';
+        moveMessage.textContent = `📝 ${moveText}${captureText}`;
+        
+        chatMessages.appendChild(moveMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    addSystemMessage(message) {
+        const chatMessages = document.getElementById('chatMessages');
+        if (chatMessages) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'system-message';
+            messageElement.textContent = `🤖 ${message}`;
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+
+    getPositionName(row, col) {
+        const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+        return `${files[col]}${10 - row}`;
+    }
+
+    showMessage(title, message) {
+        const modal = document.getElementById('gameModal');
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalMessage').textContent = message;
+        modal.classList.add('show');
+    }
+
+    startGame() {
+        this.gameState = 'playing';
+        this.currentPlayer = 'red';
+        this.playersReady = true; // Mark that both players are ready
+        this.updateTurnIndicator();
+        this.startTimer(); // Now start timer when both players are ready
+        
+        document.getElementById('gameStatusInfo').textContent = 'Đang chơi';
+        document.getElementById('surrenderBtn').style.display = 'inline-block';
+        document.getElementById('offerDrawBtn').style.display = 'inline-block';
+        
+        // Add system message
+        const chatMessages = document.getElementById('chatMessages');
+        const startMessage = document.createElement('div');
+        startMessage.className = 'system-message';
+        startMessage.textContent = '🎮 Game đã bắt đầu! Chúc các bạn chơi vui vẻ!';
+        chatMessages.appendChild(startMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    startTimer() {
+        // Only start timer if both players are ready
+        if (!this.playersReady) {
+            console.log('Timer not started - waiting for both players');
+            return;
+        }
+        
+        this.lastMoveTime = Date.now();
+        this.timerInterval = setInterval(() => {
+            this.updateTimer();
+        }, 1000);
+        
+        // Set active timer
+        this.updateActiveTimer();
+    }
+
+    updateTimer() {
+        if (this.gameState !== 'playing') return;
+        
+        // Decrease current player's time
+        if (this.currentPlayer === 'red') {
+            this.redTimeLeft = Math.max(0, this.redTimeLeft - 1);
+        } else {
+            this.blackTimeLeft = Math.max(0, this.blackTimeLeft - 1);
+        }
+        
+        this.updateTimerDisplay();
+        this.checkTimeWarnings();
+        
+        // Check if time is up
+        if (this.redTimeLeft <= 0 || this.blackTimeLeft <= 0) {
+            this.timeUp();
+        }
+    }
+
+    resetMoveTimer() {
+        this.lastMoveTime = Date.now();
+        this.updateActiveTimer();
+    }
+
+    updateTimerDisplay() {
+        const redDisplay = document.getElementById('redTimeDisplay');
+        const blackDisplay = document.getElementById('blackTimeDisplay');
+        
+        if (redDisplay) {
+            redDisplay.textContent = this.formatTime(this.redTimeLeft);
+            redDisplay.className = 'timer-display';
+            if (this.redTimeLeft <= 30) {
+                redDisplay.classList.add('danger');
+            } else if (this.redTimeLeft <= 60) {
+                redDisplay.classList.add('warning');
+            }
+        }
+        
+        if (blackDisplay) {
+            blackDisplay.textContent = this.formatTime(this.blackTimeLeft);
+            blackDisplay.className = 'timer-display';
+            if (this.blackTimeLeft <= 30) {
+                blackDisplay.classList.add('danger');
+            } else if (this.blackTimeLeft <= 60) {
+                blackDisplay.classList.add('warning');
             }
         }
     }
 
+    updateActiveTimer() {
+        const redTimer = document.getElementById('redTimer');
+        const blackTimer = document.getElementById('blackTimer');
+        
+        if (redTimer && blackTimer) {
+            redTimer.classList.remove('active', 'warning', 'danger');
+            blackTimer.classList.remove('active', 'warning', 'danger');
+            
+            const activeTimer = this.currentPlayer === 'red' ? redTimer : blackTimer;
+            const activeTime = this.currentPlayer === 'red' ? this.redTimeLeft : this.blackTimeLeft;
+            
+            activeTimer.classList.add('active');
+            
+            if (activeTime <= 30) {
+                activeTimer.classList.add('danger');
+            } else if (activeTime <= 60) {
+                activeTimer.classList.add('warning');
+            }
+        }
+    }
+
+    checkTimeWarnings() {
+        const currentTime = this.currentPlayer === 'red' ? this.redTimeLeft : this.blackTimeLeft;
+        
+        // Play warning sounds
+        if (currentTime === 60) {
+            this.audioManager?.playTimerWarning();
+        } else if (currentTime <= 30 && currentTime % 5 === 0) {
+            this.audioManager?.playTimerDanger();
+        } else if (currentTime <= 10) {
+            this.audioManager?.playTimerDanger();
+        }
+    }
+
+    timeUp() {
+        this.gameState = 'ended';
+        const loser = this.currentPlayer;
+        const winner = loser === 'red' ? 'Đen' : 'Đỏ';
+        
+        // Stop timer
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+        }
+        
+        // Stop tense music
+        this.audioManager?.stopTenseMusic();
+        
+        // Play game over sound
+        this.audioManager?.playGameOverSound();
+        
+        this.showMessage('Hết giờ!', `⏰ Người chơi ${loser === 'red' ? 'Đỏ' : 'Đen'} đã hết thời gian!\n🎉 ${winner} thắng!`);
+        
+        document.getElementById('gameStatusInfo').textContent = `${winner} thắng (hết giờ)`;
+        document.getElementById('newGameBtn').style.display = 'inline-block';
+        
+        // Add to chat
+        this.addSystemMessage(`⏰ Hết giờ! ${winner} thắng!`);
+    }
+
+    // Method to manually start timer when both players are ready
+    forceStartTimer() {
+        this.playersReady = true;
+        this.startTimer();
+    }
+
+    // Method to check and start game when both players joined
+    checkAndStartGame() {
+        if (!this.playersReady && this.gameState === 'waiting') {
+            this.playersReady = true;
+            this.startGame();
+        }
+    }
+
+    // Set player color from backend
+    setPlayerColor(color) {
+        this.playerColor = color;
+        console.log('Player color set to:', color);
+    }
+
+    // Set player turn
     setPlayerTurn(isPlayerTurn) {
         this.isPlayerTurn = isPlayerTurn;
-        
-        if (!isPlayerTurn) {
-            this.clearSelection();
-        }
-        
-        // Visual feedback
-        this.container.style.cursor = isPlayerTurn ? 'pointer' : 'not-allowed';
-        this.container.style.opacity = isPlayerTurn ? '1' : '0.8';
+        console.log('Player turn:', isPlayerTurn);
     }
 
-    updateTurnIndicator() {
-        const turnText = document.getElementById('currentTurnText');
-        if (turnText) {
-            const currentTurn = this.config.currentTurn === 'RED' ? 'Đỏ' : 'Đen';
-            const isMyTurn = this.config.currentTurn?.toLowerCase() === this.config.playerColor?.toLowerCase();
-            
-            turnText.textContent = isMyTurn ? 'Lượt của bạn' : `Lượt của ${currentTurn}`;
-            turnText.style.color = isMyTurn ? '#48bb78' : '#e53e3e';
-        }
-    }
-
-    // Event handlers
+    // Set move callback
     onMove(callback) {
-        this.onMoveCallback = callback;
+        this.moveCallback = callback;
     }
 
-    onSelect(callback) {
-        this.onSelectCallback = callback;
-    }
-
-    // Utility methods
-    getCellPosition(row, col) {
-        return {
-            x: col * 60 + 30,
-            y: row * 60 + 30
-        };
-    }
-
-    getBoardState() {
-        return this.board;
-    }
-
-    resize() {
-        // Handle responsive resizing if needed
-        const containerWidth = this.container.parentElement.clientWidth;
-        const maxWidth = Math.min(containerWidth - 40, 540);
-        
-        if (maxWidth < 540) {
-            const scale = maxWidth / 540;
-            this.container.style.transform = `scale(${scale})`;
-            this.container.style.transformOrigin = 'top left';
-        } else {
-            this.container.style.transform = '';
-        }
+    formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     }
 }
-
-// Export ChessBoard class
-window.ChessBoard = ChessBoard;

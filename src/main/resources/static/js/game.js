@@ -23,6 +23,11 @@ function initializeGame() {
     chessBoard = new ChessBoard('chessBoard', window.gameConfig);
     window.chessBoard = chessBoard; // Make globally accessible
     
+    // Set player color from backend config
+    if (window.gameConfig.playerColor) {
+        chessBoard.setPlayerColor(window.gameConfig.playerColor.toLowerCase());
+    }
+    
     // Set up move handler
     chessBoard.onMove((move) => {
         console.log('Player making move:', move);
@@ -41,6 +46,11 @@ function initializeGame() {
     // Show waiting modal if game hasn't started
     if (window.gameConfig.gameStatus === 'WAITING') {
         showWaitingModal();
+    }
+    
+    // Only start timer if game is already in progress and has 2 players
+    if (window.gameConfig.gameStatus === 'IN_PROGRESS') {
+        chessBoard.startTimer();
     }
 }
 
@@ -101,11 +111,7 @@ function initializeGameControls() {
     const leaveBtn = document.getElementById('leaveBtn');
     
     surrenderBtn?.addEventListener('click', function() {
-        if (confirm('Bạn có chắc chắn muốn đầu hàng?')) {
-            if (gameWebSocket) {
-                gameWebSocket.surrender();
-            }
-        }
+        showSurrenderModal();
     });
     
     leaveBtn?.addEventListener('click', function() {
@@ -157,6 +163,21 @@ function initializeModals() {
         });
     }
     
+    // Surrender modal
+    const confirmSurrenderBtn = document.getElementById('confirmSurrenderBtn');
+    const cancelSurrenderBtn = document.getElementById('cancelSurrenderBtn');
+    
+    confirmSurrenderBtn?.addEventListener('click', function() {
+        hideSurrenderModal();
+        if (gameWebSocket) {
+            gameWebSocket.surrender();
+        }
+    });
+    
+    cancelSurrenderBtn?.addEventListener('click', function() {
+        hideSurrenderModal();
+    });
+    
     // Game over modal
     const newGameBtn = document.getElementById('newGameBtn');
     const backHomeBtn = document.getElementById('backHomeBtn');
@@ -198,6 +219,32 @@ function hideWaitingModal() {
     const waitingModal = document.getElementById('waitingModal');
     if (waitingModal) {
         waitingModal.classList.remove('show');
+    }
+}
+
+function showSurrenderModal() {
+    const surrenderModal = document.getElementById('surrenderModal');
+    if (surrenderModal) {
+        surrenderModal.classList.add('show');
+    }
+}
+
+function hideSurrenderModal() {
+    const surrenderModal = document.getElementById('surrenderModal');
+    if (surrenderModal) {
+        surrenderModal.classList.remove('show');
+    }
+}
+
+function showGameOverModal(title, message) {
+    const modal = document.getElementById('gameOverModal');
+    const titleEl = document.getElementById('gameOverTitle');
+    const messageEl = document.getElementById('gameOverMessage');
+    
+    if (modal && titleEl && messageEl) {
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        modal.classList.add('show');
     }
 }
 

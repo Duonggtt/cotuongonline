@@ -43,6 +43,14 @@ public class GameService {
         }
 
         GameRoom room = roomOpt.get();
+        
+        // Kiểm tra nếu player đã trong phòng này rồi
+        if (playerId.equals(room.getPlayerRedId()) || playerId.equals(room.getPlayerBlackId())) {
+            // Player đã trong phòng, chỉ cần return phòng hiện tại
+            return Optional.of(room);
+        }
+        
+        // Kiểm tra phòng có thể join không
         if (!room.canJoin()) {
             return Optional.empty();
         }
@@ -53,11 +61,14 @@ public class GameService {
         player.setDisplayName(playerName);
         playerRepository.save(player);
 
-        // Gán người chơi vào phòng
+        // Gán người chơi vào phòng (ưu tiên slot trống)
         if (room.getPlayerRedId() == null) {
             room.setPlayerRedId(playerId);
         } else if (room.getPlayerBlackId() == null) {
             room.setPlayerBlackId(playerId);
+        } else {
+            // Phòng đã đầy, không thể join
+            return Optional.empty();
         }
 
         // Nếu đủ 2 người chơi, bắt đầu game

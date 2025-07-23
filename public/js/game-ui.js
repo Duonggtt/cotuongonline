@@ -131,9 +131,13 @@ class GameUI {
         
         this.addSystemMessage(`${opponentName} đã tham gia phòng`);
         
-        // Start game after short delay
+        // Start game after short delay and start timer
         setTimeout(() => {
             this.startGame();
+            // Make sure timer starts when both players joined
+            if (this.chessBoard) {
+                this.chessBoard.checkAndStartGame();
+            }
         }, 2000);
     }
 
@@ -245,17 +249,72 @@ class GameUI {
     }
 
     surrender() {
-        this.showConfirm('Đầu hàng', 'Bạn có chắc chắn muốn đầu hàng?', () => {
-            if (this.chessBoard) {
-                this.chessBoard.gameState = 'ended';
-                this.addSystemMessage(`${this.playerName} đã đầu hàng`);
-                this.showMessage('Đầu hàng', 'Bạn đã đầu hàng. Game kết thúc!');
-                
-                if (this.timerInterval) {
-                    clearInterval(this.timerInterval);
-                }
+        this.showSurrenderModal();
+    }
+
+    showSurrenderModal() {
+        const modal = document.getElementById('surrenderModal');
+        if (modal) {
+            modal.classList.add('show');
+            
+            // Setup event handlers
+            const confirmBtn = document.getElementById('confirmSurrenderBtn');
+            const cancelBtn = document.getElementById('cancelSurrenderBtn');
+            
+            confirmBtn.onclick = () => {
+                this.hideSurrenderModal();
+                this.confirmSurrender();
+            };
+            
+            cancelBtn.onclick = () => {
+                this.hideSurrenderModal();
+            };
+        }
+    }
+
+    hideSurrenderModal() {
+        const modal = document.getElementById('surrenderModal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }
+
+    confirmSurrender() {
+        if (this.chessBoard) {
+            this.chessBoard.gameState = 'ended';
+            this.addSystemMessage(`${this.playerName} đã đầu hàng`);
+            
+            // Show game over modal
+            this.showGameOverModal('😔 Bạn đã thua!', 'Bạn đã đầu hàng. Chúc bạn may mắn lần sau!');
+            
+            if (this.timerInterval) {
+                clearInterval(this.timerInterval);
             }
-        });
+        }
+    }
+
+    showGameOverModal(title, message) {
+        const modal = document.getElementById('gameOverModal');
+        const titleEl = document.getElementById('gameOverTitle');
+        const messageEl = document.getElementById('gameOverMessage');
+        
+        if (modal && titleEl && messageEl) {
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            modal.classList.add('show');
+            
+            // Setup event handlers
+            const newGameBtn = document.getElementById('newGameBtn');
+            const backHomeBtn = document.getElementById('backHomeBtn');
+            
+            newGameBtn.onclick = () => {
+                window.location.href = './index.html';
+            };
+            
+            backHomeBtn.onclick = () => {
+                window.location.href = './index.html';
+            };
+        }
     }
 
     offerDraw() {

@@ -147,6 +147,14 @@ class GameWebSocket {
     handleGameUpdate(update) {
         console.log('Game update received:', update);
         
+        // Check if game just started (both players joined)
+        if (update.gameStatus === 'IN_PROGRESS' && window.chessBoard && window.chessBoard.gameState === 'waiting') {
+            console.log('Game started - both players joined');
+            window.chessBoard.playersReady = true;
+            window.chessBoard.startGame();
+            hideWaitingModal();
+        }
+        
         // Update board state
         if (window.chessBoard && update.boardState) {
             window.chessBoard.updateBoard(update.boardState);
@@ -276,8 +284,14 @@ class GameWebSocket {
                     messageText = 'Trận đấu kết thúc với tỷ số hòa!';
                     break;
                 case 'FINISHED_SURRENDER':
-                    titleText = '🏳️ Đầu hàng';
-                    messageText = update.winner ? `${update.winner} thắng do đối thủ đầu hàng!` : 'Có người chơi đã đầu hàng!';
+                    const isWinner = update.winner && update.winner.toLowerCase() === this.config.playerColor?.toLowerCase();
+                    if (isWinner) {
+                        titleText = '� Bạn đã thắng!';
+                        messageText = `Đối thủ đã đầu hàng. Chúc mừng bạn!`;
+                    } else {
+                        titleText = '😔 Bạn đã thua!';
+                        messageText = `Bạn đã đầu hàng. Chúc bạn may mắn lần sau!`;
+                    }
                     break;
                 default:
                     messageText = 'Trận đấu đã kết thúc!';
@@ -286,6 +300,12 @@ class GameWebSocket {
             title.textContent = titleText;
             message.textContent = messageText;
             modal.classList.add('show');
+            
+            // Stop timer if exists
+            if (window.chessBoard && window.chessBoard.timerInterval) {
+                clearInterval(window.chessBoard.timerInterval);
+                window.chessBoard.timerInterval = null;
+            }
         }
     }
 
